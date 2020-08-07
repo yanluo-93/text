@@ -1,0 +1,635 @@
+/*
+ * @(#)WSCommenLogic.java
+ * @author daiwa wangz
+ * @version 1.0 2013/01/17
+ */
+package com.oneslogi.uccp.service.webservice.syte;
+
+//import java.util.HashMap;
+//import java.util.List;
+//import java.util.Map;
+
+//import javax.annotation.Resource;
+//import javax.servlet.ServletOutputStream;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+
+import jp.co.intra_mart.foundation.context.Contexts;
+import jp.co.intra_mart.foundation.security.certification.CertificationStatus;
+import jp.co.intra_mart.foundation.security.certification.UserCertificationManager;
+import jp.co.intra_mart.foundation.security.certification.model.LoginRequestInfo;
+//import jp.co.intra_mart.foundation.security.message.MessageManager;
+import jp.co.intra_mart.foundation.user_context.model.UserContext;
+//import jp.co.intra_mart.system.security.certification.message.CertificationSecurityLog;
+
+import org.seasar.struts.util.RequestUtil;
+import org.springframework.stereotype.Service;
+
+import com.oneslogi.base.consts.SystemConstSyte;
+import com.oneslogi.base.dto.LoginInfoDtoSyte;
+import com.oneslogi.base.entity.AbstractEntitySyte;
+import com.oneslogi.base.repository.BaseRepositorySyte;
+import com.oneslogi.base.service.WorkflowServiceImplSyte;
+import com.oneslogi.base.util.StringHelperSyte;
+import com.oneslogi.uccp.consts.OrgPathConstsSyte;
+import com.oneslogi.uccp.consts.RoleConstsSyte;
+import com.oneslogi.uccp.consts.SytgConstsSyte;
+import com.oneslogi.uccp.dto.webservice.SalesLockDto;
+import com.oneslogi.uccp.entity.MUserSyte;
+import com.oneslogi.uccp.repository.webservice.syte.WSCommonRepositorySyte;
+//import org.seasar.framework.beans.util.BeanMap;
+//import com.oneslogi.base.dto.KpiDto;
+//import com.oneslogi.base.logic.KpiLogic;
+//import com.oneslogi.base.logic.WorkflowLogic;
+//import com.oneslogi.base.util.EncryptionForPropertiesUtil;
+//import com.oneslogi.base.util.ObjectHelper;
+//import com.oneslogi.uccp.consts.GeneralMasterType;
+//import com.oneslogi.uccp.consts.OrgPathConsts;
+//import com.oneslogi.uccp.consts.RoleConsts;
+//import com.oneslogi.uccp.dto.system.UserRolePathDto;
+//import com.oneslogi.uccp.dto.webservice.SalesLockDto;
+//import com.oneslogi.uccp.entity.MLogin;
+//import com.oneslogi.uccp.entity.MUser;
+//import com.oneslogi.uccp.entity.MUserRole;
+//import com.oneslogi.uccp.logic.system.LoginLogic;
+//import com.oneslogi.uccp.util.UccpMessageResourcesUtil;
+
+/**
+ * SOAP服务共通
+ */
+@Service
+public class WSCommonServiceImplSyte extends WorkflowServiceImplSyte implements WSCommonServiceSyte {
+    /** 是否检查密码错误最大次数 */
+//    private static final String PASSWORD_ERRORCHECK = "password.error.check.need";
+    /** 密码错误最大次数 */
+//    private static final String PASSWORD_ERRORMAXNUM = "password.error.maxnum";
+    /**
+     * 登陆共通
+     */
+//    @Resource
+//    public LoginLogic loginLogic;
+
+    /**
+     * 会话用户登录信息
+     */
+//    @Resource
+    public LoginInfoDtoSyte loginInfoDto;
+    
+    @Inject
+    protected BaseRepositorySyte baseRepository;
+
+    @Inject
+    WSCommonRepositorySyte wscommonRepository;
+
+    /**
+     * 验证用户名、密码
+     * 
+     * @param loginId
+     * @param password
+     * @return 用户信息
+     */
+    public String[] checkSignin(String loginId, String password) {
+
+        /*
+        boolean passwordErrorFlg = false;
+
+        String[] lgdata = new String[7];
+
+        // 根据登录帐号取得人员信息
+        MLogin loginUser = loginLogic.getLoginInfo(loginId);
+
+        // 检查该帐号是否存在
+        if (ObjectHelper.isEmpty(loginUser)) {
+            lgdata[0] = "1";
+            return lgdata;
+        }
+
+        // 检查密码是否一致
+        try {
+            if (!EncryptionForPropertiesUtil.matchString(loginUser.pswd, password)) {
+                passwordErrorFlg = true;
+            }
+        } catch (Exception e) {
+            passwordErrorFlg = true;
+        }
+
+        // 更新密码错误次数
+        if (passwordErrorFlg) {
+            loginLogic.updLoginUserPassErrorNum(loginId, loginUser.pswdErrNum, loginUser.sysUserId);
+            lgdata[0] = "1";
+            return lgdata;
+        }
+
+        // 检查是否初期密码
+        // if ("0".equals(loginUser.initFlg)) {
+        // lgdata[0] = "1";
+        // return lgdata;
+        // }
+
+        // 是否check密码错误次数
+        boolean passMaxNumFlg = Boolean.valueOf(UccpMessageResourcesUtil.getMessage(
+                GeneralMasterType.MESSAGES_KEY_CONF, PASSWORD_ERRORCHECK));
+        // 密码错误次数check
+        int passwordErrorMaxNum = Integer.valueOf(UccpMessageResourcesUtil.getMessage(
+                GeneralMasterType.MESSAGES_KEY_CONF, PASSWORD_ERRORMAXNUM));
+        if (passMaxNumFlg && passwordErrorMaxNum <= loginUser.pswdErrNum) {
+            lgdata[0] = "1";
+            return lgdata;
+        }
+
+        // 验证用户名、密码
+        MUser user = loginLogic.checkLogin(loginUser.sysUserId);
+
+        // 用户名、密码错误
+        if (user == null) {
+            lgdata[0] = "1";
+            return lgdata;
+        }
+
+        // 获取登录用户默认角色
+        MUserRole defUserRole = loginLogic.getUserDefaultRole(user.sysUserId);
+
+        // 默认用户角色信息不存在
+        if (defUserRole == null) {
+            lgdata[0] = "1";
+            return lgdata;
+        }
+
+        HttpServletRequest request = RequestUtil.getRequest();
+        // 正常
+        lgdata[0] = "0";
+        // 保存登录用户信息
+        // 系统用户ID
+        lgdata[1] = user.sysUserId;
+        // 姓名
+        lgdata[2] = user.userNm;
+        LoginInfoDto loginInfoDto = new LoginInfoDto();
+        // 系统用户ID
+        loginInfoDto.sysUserId = user.sysUserId;
+        // 登录账号
+        loginInfoDto.loginId = user.loginId;
+        // 工号
+        loginInfoDto.workId = user.workId;
+        // 用户类别（0：UC员工；1：非UC员工）
+        loginInfoDto.userKbn = user.userKbn;
+        // 姓名
+        loginInfoDto.userNm = user.userNm;
+        // 客户端IP地址
+        loginInfoDto.tnmtId = request.getRemoteAddr();
+        // 用户当前登录的角色ID(默认角色)
+        loginInfoDto.roleId = defUserRole.roleId;
+
+        // 角色对应的销售单位信息取得
+        List<UserRolePathDto> userRolePath = loginLogic.getUserRoleSalesInfo(user.sysUserId, defUserRole.roleId);    
+        
+        StringBuilder allServiceScope = new StringBuilder();
+        StringBuilder allServiceScopeOrgPath = new StringBuilder();
+        StringBuilder allServiceScopeCusPath = new StringBuilder();
+        StringBuilder allServiceScopeOrgType = new StringBuilder();
+//        int cnt = 0;
+        for (java.util.Iterator<UserRolePathDto> iter = userRolePath.iterator(); iter.hasNext();) {
+            UserRolePathDto userRolePathDto = iter.next();
+//            if (cnt == 0) {
+                // 用户当前登录的角色名称(默认角色)
+                loginInfoDto.roleNm = userRolePathDto.roleNm;
+                // 用户当前登录的所属单位(默认角色)
+                loginInfoDto.orgId = userRolePathDto.salesCd;
+                // 用户当前登录的所属单位名称(默认角色)
+                loginInfoDto.orgName = userRolePathDto.salesNm;
+                // 用户当前登录的所属单位的组织客户区分（0:组织；1:客户）(默认角色)
+                loginInfoDto.orgType = ObjectHelper.getString(userRolePathDto.defOrgType);
+                // 所属单位的组织PATH(默认角色)
+                loginInfoDto.orgIdOrgPath = ObjectHelper.getString(userRolePathDto.orgPath);
+                // 所属单位的客户PATH(默认角色)
+                loginInfoDto.orgIdCusPath = ObjectHelper.getString(userRolePathDto.cusPath);
+                // 宠物区分(默认角色)
+                loginInfoDto.petKun = ObjectHelper.getString(userRolePathDto.petKbn);
+                
+                break;
+//            }
+//            cnt++;
+//            // 管辖范围设定
+//            allServiceScope.append(userRolePathDto.salesCd);
+//            allServiceScope.append(SystemConst.SEPARATOR_SERVICE_SCOPE);
+//            allServiceScopeOrgPath.append(ObjectHelper.getString(userRolePathDto.orgPath));
+//            allServiceScopeOrgPath.append(SystemConst.SEPARATOR_SERVICE_SCOPE);
+//            allServiceScopeCusPath.append(ObjectHelper.getString(userRolePathDto.cusPath));
+//            allServiceScopeCusPath.append(SystemConst.SEPARATOR_SERVICE_SCOPE);
+//            allServiceScopeOrgType.append(ObjectHelper.getString(userRolePathDto.defOrgType));
+//            allServiceScopeOrgType.append(SystemConst.SEPARATOR_SERVICE_SCOPE);
+        }
+        
+        // UPD START 同大大区修改  
+		List<UserRolePathDto> userRolePath1 = loginLogic
+				.getUserRoleDdqInfo(user.sysUserId, defUserRole.roleId, ObjectHelper.getString(loginInfoDto.orgIdOrgPath));
+		
+        int cnt1 = 0;
+        for (java.util.Iterator<UserRolePathDto> iter = userRolePath1.iterator(); iter.hasNext();) {
+            UserRolePathDto userRolePathDto = iter.next();
+            if (cnt1 == 0) {
+                // 用户当前登录的角色名称(默认角色)
+                loginInfoDto.roleNm = userRolePathDto.roleNm;
+                // 用户当前登录的所属单位(默认角色)
+                loginInfoDto.orgId = userRolePathDto.salesCd;
+                // 用户当前登录的所属单位名称(默认角色)
+                loginInfoDto.orgName = userRolePathDto.salesNm;
+                // 用户当前登录的所属单位的组织客户区分（0:组织；1:客户）(默认角色)
+                loginInfoDto.orgType = ObjectHelper.getString(userRolePathDto.defOrgType);
+                // 所属单位的组织PATH(默认角色)
+                loginInfoDto.orgIdOrgPath = ObjectHelper.getString(userRolePathDto.orgPath);
+                // 所属单位的客户PATH(默认角色)
+                loginInfoDto.orgIdCusPath = ObjectHelper.getString(userRolePathDto.cusPath);
+                // 宠物区分(默认角色)
+                loginInfoDto.petKun = ObjectHelper.getString(userRolePathDto.petKbn);
+            }
+            cnt1++;
+            // 管辖范围设定
+            allServiceScope.append(userRolePathDto.salesCd);
+            allServiceScope.append(SystemConst.SEPARATOR_SERVICE_SCOPE);
+            allServiceScopeOrgPath.append(ObjectHelper.getString(userRolePathDto.orgPath));
+            allServiceScopeOrgPath.append(SystemConst.SEPARATOR_SERVICE_SCOPE);
+            allServiceScopeCusPath.append(ObjectHelper.getString(userRolePathDto.cusPath));
+            allServiceScopeCusPath.append(SystemConst.SEPARATOR_SERVICE_SCOPE);
+            allServiceScopeOrgType.append(ObjectHelper.getString(userRolePathDto.defOrgType));
+            allServiceScopeOrgType.append(SystemConst.SEPARATOR_SERVICE_SCOPE);
+        }		
+		// UPD END 同大大区修改
+        
+
+        // 登录用户管辖范围
+        // 登录用户管辖范围
+        loginInfoDto.serviceScope = allServiceScope.toString().substring(0, allServiceScope.toString().length() - 1);
+        // 登录用户管辖范围的组织PATH
+        loginInfoDto.serviceScopeOrgPath = allServiceScopeOrgPath.toString().substring(0,
+                allServiceScopeOrgPath.toString().length() - 1);
+        // 登录用户管辖范围的客户PATH
+        loginInfoDto.serviceScopeCusPath = allServiceScopeCusPath.toString().substring(0,
+                allServiceScopeCusPath.toString().length() - 1);
+        // 登录用户管辖范围的组织客户区分
+        loginInfoDto.serviceScopeOrgType = allServiceScopeOrgType.toString().substring(0,
+                allServiceScopeOrgType.toString().length() - 1);
+
+        */
+        String[] lgdata = new String[7];
+        lgdata[0] = "1";
+        try {
+            UserCertificationManager userCertificationManager = UserCertificationManager.getInstance();
+            LoginRequestInfo loginRequestInfo = userCertificationManager.createLoginRequestInfo();
+    
+            loginRequestInfo.setUserCd(loginId);
+            loginRequestInfo.setPassword(password);
+            CertificationStatus certificationStatus = userCertificationManager.checkAccount(loginRequestInfo);
+    
+            int statusCode = certificationStatus.toCode();
+            if (statusCode != 1 && statusCode != 3) {
+                return lgdata;
+            }
+    
+            loginRequestInfo = userCertificationManager.initialParseRequest(loginRequestInfo);
+    
+            // 只认证不登录
+            certificationStatus = userCertificationManager.certificate(loginRequestInfo);
+    
+            statusCode = certificationStatus.toCode();
+    
+            if (statusCode != 1 && statusCode != 3) {
+                return lgdata;
+            }
+    
+            UserContext userContext = Contexts.get(UserContext.class);
+            
+            // 正常
+            lgdata[0] = "0";
+            // 保存登录用户信息
+            // 系统用户ID
+            lgdata[1] = userContext.getUserProfile().getUserCd();
+            // 姓名
+            lgdata[2] = userContext.getUserProfile().getUserName();
+            
+            loginInfoDto = new LoginInfoDtoSyte();
+
+            Map<String, String> cond = new HashMap<>();
+            cond.put("loginId", loginId);
+            
+            MUserSyte mUser = baseRepository.findUserInfo(cond);
+
+            // 系统用户ID
+            loginInfoDto.sysUserId = mUser.sysUserId;
+            // 登录账号
+            loginInfoDto.loginId = mUser.loginId;
+            // 工号
+            loginInfoDto.workId = mUser.workId;
+            // 用户类别（0：UC员工；1：非UC员工）
+            loginInfoDto.userKbn = mUser.userKbn;
+            // 姓名
+            loginInfoDto.userNm = mUser.userNm;
+            // 工号
+            //loginInfoDto.workId = user.workId;
+            // 用户类别（0：UC员工；1：非UC员工）
+            //loginInfoDto.userKbn = user.userKbn;
+            // 姓名
+//            loginInfoDto.userNm = userContext.getUserProfile().getUserName();
+            // 客户端IP地址
+//            loginInfoDto.tnmtId = request.getRemoteAddr();
+            // 用户当前登录的角色ID(默认角色)
+//            loginInfoDto.roleId = defUserRole.roleId;
+            // 用户当前登录的角色名称(默认角色)
+//            loginInfoDto.roleNm = userRolePathDto.roleNm;
+            // 用户当前登录的所属单位(默认角色)
+//            loginInfoDto.orgId = userRolePathDto.salesCd;
+            // 用户当前登录的所属单位名称(默认角色)
+//            loginInfoDto.orgName = userRolePathDto.salesNm;
+            // 用户当前登录的所属单位的组织客户区分（0:组织；1:客户）(默认角色)
+//            loginInfoDto.orgType = ObjectHelper.getString(userRolePathDto.defOrgType);
+            // 所属单位的组织PATH(默认角色)
+//            loginInfoDto.orgIdOrgPath = ObjectHelper.getString(userRolePathDto.orgPath);
+            // 所属单位的客户PATH(默认角色)
+//            loginInfoDto.orgIdCusPath = ObjectHelper.getString(userRolePathDto.cusPath);
+            // 宠物区分(默认角色)
+//            loginInfoDto.petKun = ObjectHelper.getString(userRolePathDto.petKbn);
+            // 保存登录用户信息
+            HttpServletRequest request = RequestUtil.getRequest();
+            // 销毁所有会话信息
+            request.getSession(true).invalidate();
+            // 保存登录用户信息到会话
+            request.getSession(true).setAttribute(SystemConstSyte.LOGIN_INFO_DTO, loginInfoDto);
+            
+        } catch (Exception e) {
+            return lgdata;
+        }
+        
+        return lgdata;
+    }
+
+    /**
+     * 会话用户登录信息
+     */
+    public LoginInfoDtoSyte getLoginInfoDto() {
+
+        // 保存登录用户信息
+        HttpServletRequest request = RequestUtil.getRequest();
+
+        // 保存登录用户信息到会话
+        loginInfoDto = (LoginInfoDtoSyte) request.getSession(true).getAttribute(SystemConstSyte.LOGIN_INFO_DTO);
+
+        return loginInfoDto;
+    }
+
+    /**
+     * 会话用户登录信息
+     */
+    public void setBaseData(AbstractEntitySyte abstractEntity) {
+
+        abstractEntity.setBaseData(getLoginInfoDto());
+        // 输入区分
+        if (StringHelperSyte.isEmpty(abstractEntity.addEntKbn)) {
+            abstractEntity.addEntKbn = SytgConstsSyte.ENT_KBN_IMPORT;
+        }
+        abstractEntity.updEntKbn = SytgConstsSyte.ENT_KBN_IMPORT;
+    }
+
+//    /**
+//     * 费用名称列表取得
+//     * 
+//     * @return 费用名称列表
+//     */
+//    public List<KpiDto> getAmtNameList(String strType) {
+//        BeanMap bm = new BeanMap();
+//        bm.put("KPI_TYPE_CD", strType);
+//
+//        return jdbcManager.selectBySqlFile(KpiDto.class, getSqlPath("kpi/getAmtNameList.sql"), bm).getResultList();
+//    }
+//
+//    private static String getSqlPath(String relativePath) {
+//        // return KpiLogic.class.getPackage().getName().replace(".", "/") + "/"
+//        // + relativePath;
+//        String packAge = KpiLogic.class.toString().split(" ")[1];
+//        String clazzPath = packAge.substring(0, packAge.lastIndexOf(".")).replace(".", "/");
+//
+//        return clazzPath + "/" + relativePath;
+//    }
+
+    /**
+     * 版本号验证
+     * 
+     * @param 模板类型
+     * @param 版本号
+     * @return 0：成功；1：失败
+     */
+    public String checkVersionCd(String strTemplateType, String strVersionCd) {
+        List<String> List = null;
+        String strRet = "0";
+        // Alsi Begin
+//        StringBuffer str = new StringBuffer();
+//        str.append("SELECT ");
+//        str.append("T.VERSION_CD    AS  VERSIONCD ");
+//        str.append("FROM ");
+//        str.append("M_VERSION_TEMPLATE T ");
+//        str.append("WHERE ");
+//        str.append("TEMPLATE_TYPE   =   ? ");
+//        str.append("AND T.VERSION_CD      =   ? ");
+//        List = jdbcManager.selectBySql(String.class, str.toString(), strTemplateType, strVersionCd).getResultList();
+        List = baseRepository.checkVersionCd(strTemplateType, strVersionCd);
+        // Alsi End
+        // 异常返回
+        if (StringHelperSyte.isEmpty(List) || List.size() == 0) {
+            strRet = "1";
+            return strRet;
+        }
+        return strRet;
+    }
+
+//    /**
+//     * BAT全路径取得
+//     * 
+//     * @return BAT全路径
+//     */
+//    public String getBatPath(String strType) {
+//        List<String> list = null;
+//        StringBuffer str = new StringBuffer();
+//        str.append(" SELECT JOBNET_ID ");
+//        str.append(" FROM TM_BATCH_OPE_LOG ");
+//        //COMMENT START, MODIFY, JIANGLISI, 20130502, call the .bat file with different parameter
+//        //str.append(" WHERE BATCH_ID = 'Syti0007Batch' ");
+//        if(strType.equals("1"))
+//        {
+//        	str.append(" WHERE BATCH_ID = 'Syti0007Batch_1' ");
+//        }
+//        else if(strType.equals("2"))
+//        {
+//        	str.append(" WHERE BATCH_ID = 'Syti0007Batch_2' ");
+//        }
+//        else if(strType.equals("3"))
+//        {
+//        	str.append(" WHERE BATCH_ID = 'Syti0007Batch_3' ");
+//        }
+//        else
+//        {
+//        	return null;
+//        }
+//        //COMMENT END, MODIFY, JIANGLISI, 20130502, call the .bat file with different parameter
+//        str.append(" AND MANUAL_START_FLG = '0' ");
+//        list = jdbcManager.selectBySql(String.class, str.toString()).getResultList();
+//        if (list.size() == 0) {
+//            return null;
+//        }
+//        return list.get(0);
+//    }
+
+    /**
+     * 锁定表数据下载
+     */
+    public String[][] getSalesLockInfo(String[] strKpiTypeCd) {
+        // 查询结果集合
+    	List<SalesLockDto> list = null;
+        Map<String, Object> map = new HashMap<String, Object>();
+        map.put("KPI_TYPE_CD", strKpiTypeCd);
+//        String sqlPath = getContextSqlPath("kpi/getSalesLock.sql");
+//
+//        list = jdbcManager.selectBySqlFile(SalesLockDto.class , sqlPath).getResultList();
+        list = wscommonRepository.getSalesLock(map);
+
+        // 异常返回
+        if (list.size() == 0) {
+            String[][] strSalesLockInfo = new String[1][1];
+            strSalesLockInfo[0][0] = "1";
+            return strSalesLockInfo;
+        }
+
+        String[][] strSalesLockInfo = new String[list.size() + 1][3];
+        // 正常返回数据
+        strSalesLockInfo[0][0] = "0";
+        for (int i = 1; i < strSalesLockInfo.length; i++) {
+        	SalesLockDto dto = (SalesLockDto) list.get(i - 1);
+        	strSalesLockInfo[i][1] = dto.halfPeidCd;
+        	strSalesLockInfo[i][2] = dto.salesOrgCd;
+        }
+        return strSalesLockInfo;
+    }
+    
+    /**
+     * 判断有无锁定
+     * 
+     * @param kpiPlanCd
+     * @return
+     */
+    public boolean chkLock(String kpiTypeCd) {
+    	LoginInfoDtoSyte loginInfoDto = getLoginInfoDto();
+    	String kpiEventCd = "KA000000000";
+        if (RoleConstsSyte.CHANNEL_SUPERVISOR.equals(loginInfoDto.roleId)) {
+            return true;
+        }
+        
+        String companyCd = "";
+        if (loginInfoDto.orgIdOrgPath.length() >= OrgPathConstsSyte.JAVA_BRANCH_END_POS_INT) {
+            // 大区
+            companyCd = loginInfoDto.orgIdOrgPath.substring(OrgPathConstsSyte.JAVA_BRANCH_START_POS_INT, OrgPathConstsSyte.JAVA_BRANCH_END_POS_INT);
+        }
+        
+        int count = 0;
+        StringBuffer sql = new StringBuffer();
+        // 非临时计划
+        if (!"06".equals(kpiTypeCd) && !"07".equals(kpiTypeCd)
+                && !"08".equals(kpiTypeCd) && !"09".equals(kpiTypeCd)) {
+            // KPI共通设置
+            sql.append("     SELECT                  ");
+            sql.append("     HALF_PEID_CD            ");
+            sql.append("     FROM                    ");
+            sql.append("     TK_COMMON_CONFIG        ");
+            sql.append("     WHERE                   ");
+//            sql.append("     KPI_TYPE_CD = ?         ");
+            sql.append("     KPI_TYPE_CD = #{kpiTypeCd}         ");
+
+//            Alsi Begin zl
+//            String halfPeidCd = jdbcManager.selectBySql(String.class, sql.toString(), kpiTypeCd).getSingleResult();
+            String halfPeidCd = wscommonRepository.chkLock1(sql.toString(), kpiTypeCd);
+//            Alsi End
+            // KPI锁定信息T
+            sql = new StringBuffer();
+            sql.append("     SELECT                  ");
+            sql.append("     HALF_PEID_CD            ");
+            sql.append("     FROM                    ");
+            sql.append("     TK_LOCK_INFO            ");
+            sql.append("     WHERE                   ");
+//            sql.append("     KPI_TYPE_CD = ?         ");
+            sql.append("     KPI_TYPE_CD = #{kpiTypeCd}         ");
+//            sql.append("     AND HALF_PEID_CD = ?         ");
+            sql.append("     AND HALF_PEID_CD = #{halfPeidCd}         ");
+            if (!StringHelperSyte.isEmpty(companyCd)) {
+//                sql.append("     AND SALES_ORG_CD = ?         ");
+                sql.append("     AND SALES_ORG_CD = #{companyCd}         ");
+//              Alsi Begin zl
+//                count = (int) jdbcManager.getCountBySql(sql.toString(), kpiTypeCd, halfPeidCd, companyCd);
+                count = (int) wscommonRepository.chkLock2(sql.toString(), kpiTypeCd, halfPeidCd, companyCd);
+//              Alsi End
+            } else {
+//              Alsi Begin zl
+//                count = (int) jdbcManager.getCountBySql(sql.toString(), kpiTypeCd, halfPeidCd);            	
+                count = (int) wscommonRepository.chkLock3(sql.toString(), kpiTypeCd, halfPeidCd);            	
+//              Alsi End
+            }
+            
+            
+        // 临时计划
+        } else {
+            // KPI锁定信息T
+            sql = new StringBuffer();
+            sql.append("     SELECT                  ");
+            sql.append("     HALF_PEID_CD            ");
+            sql.append("     FROM                    ");
+            sql.append("     TK_LOCK_INFO            ");
+            sql.append("     WHERE                   ");
+//            sql.append("     KPI_EVENT_CD = ?        ");
+            sql.append("     KPI_EVENT_CD = #{kpiEventCd}        ");
+            if (!StringHelperSyte.isEmpty(companyCd)) {
+//                sql.append("     AND SALES_ORG_CD = ?    ");
+                sql.append("     AND SALES_ORG_CD = #{companyCd}    ");
+//              Alsi Begin zl
+//                count = (int) jdbcManager.getCountBySql(sql.toString(), kpiEventCd, companyCd);
+                count = (int) wscommonRepository.chkLock4(sql.toString(), kpiEventCd, companyCd);
+//              Alsi End
+            } else {
+//              Alsi Begin zl
+//                count = (int) jdbcManager.getCountBySql(sql.toString(), kpiEventCd);
+                count = (int) wscommonRepository.chkLock5(sql.toString(), kpiEventCd);
+//              Alsi End
+            }
+            
+        }
+
+        if (count != 0) {
+            return false;
+        }
+        return true;
+    }
+//    
+//    
+//    /**
+//     * 检查同时使用进销存模板人数是否超过最大值
+//     * @return
+//     */
+//    public boolean checkUpdPV() {
+//        // 取得控制上限值
+//        StringBuilder sql = new StringBuilder();
+//        sql.append("SELECT T.GENERAL_CD FROM TM_COMMON T WHERE T.GENERAL_MASTER_TYPE = 'MAX_TEMPLATE_USER'");
+//        
+//        int maxTemplatePv = Integer.valueOf(jdbcManager.selectBySql(String.class, sql.toString()).getSingleResult());
+//        
+//        // check目前人数是否ok
+//        StringBuilder onlineSql = new StringBuilder();
+//        onlineSql.append("select count(*) from tm_template_log t where t.sale_month = '999999' and t.del_flg = '0'");
+//        
+//        int onlinePv = Integer.valueOf(jdbcManager.selectBySql(String.class, onlineSql.toString()).getSingleResult());
+//        
+//        if (onlinePv > maxTemplatePv) {
+//            return true;
+//        }
+//        
+//        return false;
+//    }
+    
+}
